@@ -5,6 +5,8 @@
 #include <iomanip>
 #include <map>
 #include <cstdlib>
+#include <sstream>
+#include <cstdio>
 
 // Terminal color codes for shades of green
 const std::vector<std::string> shades = {
@@ -18,20 +20,30 @@ const std::vector<std::string> shades = {
 
 const std::string RESET = "\033[0m";
 
-// Simulated contribution data (0-5 for each day)
-std::map<std::string, int> generateMockData(int days_back = 365) {
-    std::map<std::string, int> data;
-    time_t now = time(0);
-    for (int i = 0; i < days_back; ++i) {
-        time_t day = now - i * 86400;
-        tm* timeinfo = localtime(&day);
-
-        char buffer[11];
-        strftime(buffer, sizeof(buffer), "%Y-%m-%d", timeinfo);
-
-        data[buffer] = rand() % 6; // mock contribution level 0-5
+// Run a command and capture the output
+std::string execCommand(const std::string& cmd) {
+    std::array<char, 128> buffer;
+    std::string result;
+    FILE* pipe = popen(cmd.c_str(), "r");
+    if (!pipe) return "";
+    while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
+        result += buffer.data();
     }
-    return data;
+    pclose(pipe);
+    return result;
+}
+
+// Parse git log dates and count contributions per day
+std::map<std::string, int> getGitContributions(const std::string& repo_path = ".") {
+    std::map<std::string, int> contributions;
+    std::string cmd = "git -C " + repo_path + " log --since=1.year --date=short --pretty=format:%ad";
+    std::string output = execCommand(cmd);
+    std::istringstream stream(output);
+    std::string line;
+    while (std::getline(stream, line)) {
+        ++contributions[line];
+    }
+    return contributions;
 }
 
 void printGitActivity(const std::map<std::string, int>& activity) {
@@ -43,44 +55,46 @@ void printGitActivity(const std::map<std::string, int>& activity) {
     std::vector<std::vector<std::string>> grid(7); // rows: Sun to Sat
     std::vector<std::string> dates;
 
-    // Fill grid from oldest to newest date
-    for (auto it = activity.rbegin(); it != activity.rend(); ++it) {
-        dates.push_back(it->first);
+    // Generate last 365 dates and fill activity level
+    for (int i = 364; i >= 0; --i) {
+        time_t day = now - i * 86400;
+        tm* timeinfo = localtime(&day);
+        char buffer[11];
+        strftime(buffer, sizeof(buffer), "%Y-%m-%d", timeinfo);
+        std::string date_str(buffer);
+
+        int level = 0;
+        if (activity.find(date_str) != activity.end()) {
+            int count = activity.at(date_str);
+            if (count >= 15) level = 5;
+            else if (count >= 10) level = 4;
+            else if (count >= 5) level = 3;
+            else if (count >= 2) level = 2;
+            else if (count >= 1) level = 1;
+        }
+
+        int weekday = timeinfo->tm_wday;
+        grid[weekday].push_back(shades[level]);
     }
 
-    int col = 0;
-    for (int i = dates.size() - 1; i >= 0; --i) {
-        tm tm_date = {};
-        strptime(dates[i].c_str(), "%Y-%m-%d", &tm_date);
-        int day = tm_date.tm_wday;
-        while (grid.size() <= day) grid.emplace_back();
-        while (grid[day].size() < col) grid[day].push_back(shades[0]);
-
-        int level = activity.at(dates[i]);
-        grid[day].push_back(shades[level]);
-
-        if (day == 6) ++col;
-    }
-
-    // Print header (weeks)
-    std::cout << "    ";
-    for (size_t i = 0; i < grid[0].size(); ++i)
-        std::cout << " ";
-    std::cout << "\n";
-
-    // Days
+    // Print day labels
     const char* day_labels[7] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
     for (int i = 0; i < 7; ++i) {
         std::cout << day_labels[i] << " ";
-        for (const auto& cell : grid[i])
+        for (const auto& cell : grid[i]) {
             std::cout << cell << RESET;
+        }
         std::cout << "\n";
     }
     std::cout << RESET;
 }
 
-int main() {
-    auto mockData = generateMockData();
-    printGitActivity(mockData);
+int main(int argc, char* argv[]) {
+    std::string path = ".";
+    if (argc > 1) {
+        path = argv[1];
+    }
+    auto contributions = getGitContributions(path);
+    printGitActivity(contributions);
     return 0;
 }
