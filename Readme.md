@@ -1,6 +1,6 @@
 # Git Activity Visualization
 
-![Screenshot](https://github.com/dakennedyd/activity/screenshot.jpg)
+![Screenshot](./screenshot.jpg)
 
 This program visualizes Git activity over the past year as a colorful grid.
 
