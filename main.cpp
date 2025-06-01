@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <sstream>
 #include <cstdio>
+#include <array>
 
 // Terminal color codes for shades of green
 const std::vector<std::string> shades = {
@@ -50,10 +51,13 @@ void printGitActivity(const std::map<std::string, int>& activity) {
     // Get current date to align weeks
     time_t now = time(0);
     tm* today = localtime(&now);
-    int start_weekday = today->tm_wday; // Sunday=0
 
     std::vector<std::vector<std::string>> grid(7); // rows: Sun to Sat
     std::vector<std::string> dates;
+    std::vector<std::string> month_labels;
+
+    int prev_month = -1;
+    std::vector<int> month_starts;
 
     // Generate last 365 dates and fill activity level
     for (int i = 364; i >= 0; --i) {
@@ -75,9 +79,34 @@ void printGitActivity(const std::map<std::string, int>& activity) {
 
         int weekday = timeinfo->tm_wday;
         grid[weekday].push_back(shades[level]);
+
+        // Track month changes
+        if (timeinfo->tm_mday <= 7) {
+            if (timeinfo->tm_mon != prev_month) {
+                month_starts.push_back(grid[0].size() - 1);
+                char month_name[4];
+                strftime(month_name, sizeof(month_name), "%b", timeinfo);
+                month_labels.push_back(month_name);
+                prev_month = timeinfo->tm_mon;
+            }
+        }
     }
 
-    // Print day labels
+    // Print month labels
+    std::cout << "    ";
+    int col = 0;
+    for (size_t i = 0; i < month_starts.size(); ++i) {
+        int pos = month_starts[i];
+        while (col < pos) {
+            std::cout << " ";
+            ++col;
+        }
+        std::cout << month_labels[i];
+        col += month_labels[i].length();
+    }
+    std::cout << "\n";
+
+    // Print day labels and graph
     const char* day_labels[7] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
     for (int i = 0; i < 7; ++i) {
         std::cout << day_labels[i] << " ";
@@ -86,6 +115,7 @@ void printGitActivity(const std::map<std::string, int>& activity) {
         }
         std::cout << "\n";
     }
+
     std::cout << RESET;
 }
 
