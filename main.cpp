@@ -13,13 +13,15 @@
 #include <cstdio>     // for popen, pclose, FILE, fgets
 
 // Terminal color codes for shades of green
+// To change background color insead of foreground change 38 for 48
 const std::vector<std::string> shades = {
-    "\033[48;5;232m ", // No activity
-    "\033[48;5;22m ",  // Light green
-    "\033[48;5;28m ",
-    "\033[48;5;34m ",
-    "\033[48;5;40m ",  // Darker green
-    "\033[48;5;46m "   // Most active
+    " \033[38;5;232m□", // No activity
+    // "  ", // No activity
+    " \033[38;5;22m■",  // Light green
+    " \033[38;5;28m■",
+    " \033[38;5;34m■",
+    " \033[38;5;40m■",  // Darker green
+    " \033[38;5;46m■"   // Most active
 };
 
 const std::string RESET = "\033[0m";
@@ -155,19 +157,19 @@ void printGitActivity(const std::map<std::string, int>& activity) {
     }
 
     // Print month labels across the top
-    // print 4 spaces of left padding, then position each month label above its week column.
-    std::cout << "    ";
-    int col = 0;
+    std::cout << "    "; // Left padding of 4 spaces
+    int current_col = 4; // Current column position after padding
     for (size_t i = 0; i < month_starts.size(); ++i) {
-        int pos = month_starts[i];
-        // Move from current printed column to the target week column
-        while (col < pos) {
+        int week_index = month_starts[i];
+        int target_col = 4 + week_index * 2; // Starting column for this week's label
+        // Print spaces from current_col to target_col
+        while (current_col < target_col) {
             std::cout << " ";
-            ++col;
+            ++current_col;
         }
-        // Print the 3-letter month name
+        // Print the month label
         std::cout << month_labels[i];
-        col += static_cast<int>(month_labels[i].length());
+        current_col += static_cast<int>(month_labels[i].length());
     }
     std::cout << "\n";
 
